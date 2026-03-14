@@ -1,3 +1,4 @@
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useDashboardStore } from "../store";
 
@@ -24,6 +25,7 @@ export default function NodeInfo() {
     (s) => s.nodeExplanationLoading,
   );
   const explainNode = useDashboardStore((s) => s.explainNode);
+  const [languageExpanded, setLanguageExpanded] = useState(true);
 
   const node = graph?.nodes.find((n) => n.id === selectedNodeId) ?? null;
 
@@ -77,8 +79,28 @@ export default function NodeInfo() {
       )}
 
       {node.languageNotes && (
-        <div className="bg-blue-900/50 border border-blue-700 rounded p-3 mb-4 text-sm text-blue-200">
-          {node.languageNotes}
+        <div className="mb-4">
+          <button
+            onClick={() => setLanguageExpanded(!languageExpanded)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-indigo-400 uppercase tracking-wider mb-2 hover:text-indigo-300 transition-colors"
+          >
+            <svg
+              className={`w-3 h-3 transition-transform ${languageExpanded ? "rotate-90" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Language Concepts
+          </button>
+          {languageExpanded && (
+            <div className="bg-indigo-900/30 border border-indigo-700/50 rounded-lg p-3">
+              <p className="text-sm text-indigo-200 leading-relaxed">
+                {node.languageNotes}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
