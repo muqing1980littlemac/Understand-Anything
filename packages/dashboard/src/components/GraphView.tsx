@@ -35,7 +35,7 @@ export default function GraphView() {
         nodeType: node.type,
         summary: node.summary,
         complexity: node.complexity,
-        isHighlighted: searchResults.includes(node.id),
+        isHighlighted: searchResults.some((r) => r.nodeId === node.id),
         isSelected: selectedNodeId === node.id,
       },
     }));

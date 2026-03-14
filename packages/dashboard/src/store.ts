@@ -1,11 +1,14 @@
 import { create } from "zustand";
-import type { KnowledgeGraph } from "@understand-anything/core";
+import { SearchEngine } from "@understand-anything/core/search";
+import type { SearchResult } from "@understand-anything/core/search";
+import type { KnowledgeGraph } from "@understand-anything/core/types";
 
 interface DashboardStore {
   graph: KnowledgeGraph | null;
   selectedNodeId: string | null;
   searchQuery: string;
-  searchResults: string[]; // node IDs
+  searchResults: SearchResult[];
+  searchEngine: SearchEngine | null;
 
   setGraph: (graph: KnowledgeGraph) => void;
   selectNode: (nodeId: string | null) => void;
@@ -17,24 +20,22 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
   selectedNodeId: null,
   searchQuery: "",
   searchResults: [],
+  searchEngine: null,
 
-  setGraph: (graph) => set({ graph }),
+  setGraph: (graph) => {
+    const searchEngine = new SearchEngine(graph.nodes);
+    const query = get().searchQuery;
+    const searchResults = query.trim() ? searchEngine.search(query) : [];
+    set({ graph, searchEngine, searchResults });
+  },
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
   setSearchQuery: (query) => {
-    const graph = get().graph;
-    if (!graph || !query.trim()) {
+    const engine = get().searchEngine;
+    if (!engine || !query.trim()) {
       set({ searchQuery: query, searchResults: [] });
       return;
     }
-    const lower = query.toLowerCase();
-    const results = graph.nodes
-      .filter(
-        (node) =>
-          node.name.toLowerCase().includes(lower) ||
-          node.summary.toLowerCase().includes(lower) ||
-          node.tags.some((tag) => tag.toLowerCase().includes(lower)),
-      )
-      .map((n) => n.id);
-    set({ searchQuery: query, searchResults: results });
+    const searchResults = engine.search(query);
+    set({ searchQuery: query, searchResults });
   },
 }));
