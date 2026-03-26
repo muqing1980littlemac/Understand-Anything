@@ -8,7 +8,7 @@ import type {
 
 export type Persona = "non-technical" | "junior" | "experienced";
 export type NavigationLevel = "overview" | "layer-detail";
-export type ViewMode = "graph" | "flow";
+
 
 /** Find which layer a node belongs to. Returns layerId or null. */
 function findNodeLayer(graph: KnowledgeGraph, nodeId: string): string | null {
@@ -32,9 +32,6 @@ interface DashboardStore {
   // Lens navigation
   navigationLevel: NavigationLevel;
   activeLayerId: string | null;
-
-  // View mode: graph (default free-form) or flow (swim-lane)
-  viewMode: ViewMode;
 
   codeViewerOpen: boolean;
   codeViewerNodeId: string | null;
@@ -65,7 +62,6 @@ interface DashboardStore {
   goBackNode: () => void;
   drillIntoLayer: (layerId: string) => void;
   navigateToOverview: () => void;
-  setViewMode: (mode: ViewMode) => void;
   setFocusNode: (nodeId: string | null) => void;
   setSearchQuery: (query: string) => void;
   toggleLayers: () => void;
@@ -117,8 +113,6 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
 
   navigationLevel: "overview",
   activeLayerId: null,
-  viewMode: "graph",
-
   codeViewerOpen: false,
   codeViewerNodeId: null,
 
@@ -241,16 +235,6 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
       focusNodeId: null,
       codeViewerOpen: false,
       codeViewerNodeId: null,
-    }),
-
-  setViewMode: (mode) =>
-    set({
-      viewMode: mode,
-      // When switching to flow view, go to overview level (flow shows all layers)
-      navigationLevel: mode === "flow" ? "overview" : get().navigationLevel,
-      activeLayerId: mode === "flow" ? null : get().activeLayerId,
-      selectedNodeId: null,
-      focusNodeId: null,
     }),
 
   setFocusNode: (nodeId) => set({ focusNodeId: nodeId, selectedNodeId: nodeId }),

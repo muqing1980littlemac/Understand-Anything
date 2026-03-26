@@ -23,7 +23,6 @@ import Breadcrumb from "./Breadcrumb";
 import { useDashboardStore } from "../store";
 import {
   applyDagreLayout,
-  applySwimLaneLayout,
   NODE_WIDTH,
   NODE_HEIGHT,
   LAYER_CLUSTER_WIDTH,
@@ -416,169 +415,12 @@ function useLayerDetailGraph() {
   ]);
 }
 
-// ── Flow (swim-lane) view: all layers as columns ──────────────────────
-
-function useFlowViewGraph() {
-  const graph = useDashboardStore((s) => s.graph);
-  const selectedNodeId = useDashboardStore((s) => s.selectedNodeId);
-  const searchResults = useDashboardStore((s) => s.searchResults);
-  const selectNode = useDashboardStore((s) => s.selectNode);
-  const tourHighlightedNodeIds = useDashboardStore(
-    (s) => s.tourHighlightedNodeIds,
-  );
-  const diffMode = useDashboardStore((s) => s.diffMode);
-  const changedNodeIds = useDashboardStore((s) => s.changedNodeIds);
-  const affectedNodeIds = useDashboardStore((s) => s.affectedNodeIds);
-
-  const handleNodeSelect = useCallback(
-    (nodeId: string) => {
-      selectNode(nodeId);
-    },
-    [selectNode],
-  );
-
-  return useMemo(() => {
-    if (!graph || graph.layers.length === 0)
-      return { nodes: [] as Node[], edges: [] as Edge[] };
-
-    const allLayerNodeIds = new Set(
-      graph.layers.flatMap((l) => l.nodeIds),
-    );
-
-    const fileGraphNodes = graph.nodes.filter(
-      (n) => n.type === "file" && allLayerNodeIds.has(n.id),
-    );
-
-    const fileNodeIds = new Set(fileGraphNodes.map((n) => n.id));
-    const neighborNodeIds = new Set<string>();
-    if (selectedNodeId) {
-      for (const edge of graph.edges) {
-        if (edge.source === selectedNodeId && fileNodeIds.has(edge.target))
-          neighborNodeIds.add(edge.target);
-        if (edge.target === selectedNodeId && fileNodeIds.has(edge.source))
-          neighborNodeIds.add(edge.source);
-      }
-      neighborNodeIds.add(selectedNodeId);
-    }
-
-    const diffNodeIds = diffMode
-      ? new Set([...changedNodeIds, ...affectedNodeIds])
-      : new Set<string>();
-
-    const flowNodes: CustomFlowNode[] = fileGraphNodes.map((node) => {
-      const matchResult = searchResults.find((r) => r.nodeId === node.id);
-      const hasSelection = !!selectedNodeId;
-      return {
-        id: node.id,
-        type: "custom" as const,
-        position: { x: 0, y: 0 },
-        data: {
-          label: node.name ?? node.filePath?.split("/").pop() ?? node.id,
-          nodeType: node.type,
-          summary: node.summary,
-          complexity: node.complexity,
-          isHighlighted: !!matchResult,
-          searchScore: matchResult?.score,
-          isSelected: selectedNodeId === node.id,
-          isTourHighlighted: tourHighlightedNodeIds.includes(node.id),
-          isDiffChanged: diffMode && changedNodeIds.has(node.id),
-          isDiffAffected: diffMode && affectedNodeIds.has(node.id),
-          isDiffFaded:
-            diffMode &&
-            !changedNodeIds.has(node.id) &&
-            !affectedNodeIds.has(node.id),
-          isNeighbor:
-            hasSelection &&
-            neighborNodeIds.has(node.id) &&
-            selectedNodeId !== node.id,
-          isSelectionFaded: hasSelection && !neighborNodeIds.has(node.id),
-          onNodeClick: handleNodeSelect,
-        },
-      };
-    });
-
-    const flowEdges: Edge[] = [];
-    let edgeIdx = 0;
-    for (const edge of graph.edges) {
-      if (!fileNodeIds.has(edge.source) || !fileNodeIds.has(edge.target))
-        continue;
-
-      const isSelectedEdge =
-        !!selectedNodeId &&
-        (edge.source === selectedNodeId || edge.target === selectedNodeId);
-      const hasSelection = !!selectedNodeId;
-      const sourceInDiff = diffMode && diffNodeIds.has(edge.source);
-      const targetInDiff = diffMode && diffNodeIds.has(edge.target);
-      const isImpacted = diffMode && (sourceInDiff || targetInDiff);
-
-      let edgeStyle: React.CSSProperties;
-      let edgeLabelStyle: React.CSSProperties;
-      let edgeAnimated: boolean;
-
-      if (isImpacted) {
-        edgeStyle = {
-          stroke:
-            sourceInDiff && targetInDiff
-              ? "rgba(224, 82, 82, 0.7)"
-              : "rgba(212, 160, 48, 0.5)",
-          strokeWidth: 2.5,
-        };
-        edgeLabelStyle = { fill: "#a39787", fontSize: 10 };
-        edgeAnimated = true;
-      } else if (diffMode) {
-        edgeStyle = { stroke: "rgba(212,165,116,0.08)", strokeWidth: 1 };
-        edgeLabelStyle = { fill: "rgba(163,151,135,0.3)", fontSize: 10 };
-        edgeAnimated = false;
-      } else if (isSelectedEdge) {
-        edgeStyle = { stroke: "rgba(212,165,116,0.8)", strokeWidth: 2.5 };
-        edgeLabelStyle = { fill: "#d4a574", fontSize: 11, fontWeight: 600 };
-        edgeAnimated = true;
-      } else if (hasSelection) {
-        edgeStyle = { stroke: "rgba(212,165,116,0.08)", strokeWidth: 1 };
-        edgeLabelStyle = { fill: "rgba(163,151,135,0.2)", fontSize: 10 };
-        edgeAnimated = false;
-      } else {
-        edgeStyle = { stroke: "rgba(212,165,116,0.25)", strokeWidth: 1 };
-        edgeLabelStyle = { fill: "#a39787", fontSize: 9 };
-        edgeAnimated = false;
-      }
-
-      flowEdges.push({
-        id: `fe-${edgeIdx++}`,
-        source: edge.source,
-        target: edge.target,
-        label: edge.type,
-        animated: edgeAnimated,
-        style: edgeStyle,
-        labelStyle: edgeLabelStyle,
-      });
-    }
-
-    const result = applySwimLaneLayout(
-      graph,
-      flowNodes as unknown as Node[],
-      flowEdges,
-    );
-    return { nodes: result.nodes, edges: result.edges };
-  }, [
-    graph,
-    selectedNodeId,
-    searchResults,
-    tourHighlightedNodeIds,
-    handleNodeSelect,
-    diffMode,
-    changedNodeIds,
-    affectedNodeIds,
-  ]);
-}
-
 // ── Main inner component (must be inside ReactFlowProvider) ────────────
 
 function GraphViewInner() {
   const graph = useDashboardStore((s) => s.graph);
   const navigationLevel = useDashboardStore((s) => s.navigationLevel);
   const activeLayerId = useDashboardStore((s) => s.activeLayerId);
-  const viewMode = useDashboardStore((s) => s.viewMode);
   const selectNode = useDashboardStore((s) => s.selectNode);
   const drillIntoLayer = useDashboardStore((s) => s.drillIntoLayer);
   const focusNodeId = useDashboardStore((s) => s.focusNodeId);
@@ -586,14 +428,9 @@ function GraphViewInner() {
 
   const overviewGraph = useOverviewGraph();
   const detailGraph = useLayerDetailGraph();
-  const flowGraph = useFlowViewGraph();
 
   const { nodes: initialNodes, edges: initialEdges } =
-    viewMode === "flow"
-      ? flowGraph
-      : navigationLevel === "overview"
-        ? overviewGraph
-        : detailGraph;
+    navigationLevel === "overview" ? overviewGraph : detailGraph;
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -608,22 +445,16 @@ function GraphViewInner() {
     setEdges(initialEdges);
   }, [initialEdges, setEdges]);
 
-  // Fit view on level/layer/view-mode transitions
+  // Fit view on level/layer transitions
   useEffect(() => {
     const timer = setTimeout(() => {
       fitView({ duration: 400, padding: 0.2 });
     }, 50);
     return () => clearTimeout(timer);
-  }, [navigationLevel, activeLayerId, viewMode, fitView]);
+  }, [navigationLevel, activeLayerId, fitView]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: { id: string }) => {
-      // In flow view, all clicks are selections (no drill-in)
-      if (viewMode === "flow") {
-        if (node.id.startsWith("lane:")) return;
-        selectNode(node.id);
-        return;
-      }
       if (navigationLevel === "overview") {
         drillIntoLayer(node.id);
       } else if (node.id.startsWith("portal:")) {
@@ -633,7 +464,7 @@ function GraphViewInner() {
         selectNode(node.id);
       }
     },
-    [viewMode, navigationLevel, drillIntoLayer, selectNode],
+    [navigationLevel, drillIntoLayer, selectNode],
   );
 
   const onPaneClick = useCallback(() => {
