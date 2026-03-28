@@ -94,7 +94,7 @@ describe("persistence", () => {
     });
 
     it("should throw error when loading a fatally invalid graph", () => {
-      const invalidGraph = { ...sampleGraph, nodes: "not-an-array" };
+      const invalidGraph = { ...sampleGraph, project: null };
       saveGraph(tempDir, invalidGraph as unknown as KnowledgeGraph);
 
       expect(() => {
